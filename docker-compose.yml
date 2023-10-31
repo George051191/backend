@@ -1,0 +1,42 @@
+version: "3.9"
+services:
+  backend:
+    build: .
+    #    env_file:
+    #      - .env
+    environment:
+      - DB_URL=postgresql+asyncpg://postgres:postgres@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=Host(`api.poprojecteam.ru`,`api.xn--e1agfjgfht.xn--p1ai`)
+      - traefik.http.services.backend.loadbalancer.server.port=8000
+
+  db:
+    image: postgres:15-alpine
+    hostname: db
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d postgres -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    #    volumes:
+    #      - ./data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+  migrations:
+    build: .
+    #    env_file:
+    #      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_URL=postgresql+asyncpg://postgres:postgres@db:5432/postgres
+    entrypoint: bash -c "./.venv/bin/alembic upgrade head"
